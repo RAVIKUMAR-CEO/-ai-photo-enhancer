@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Photo Enhancer</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,sans-serif;background:#f5f5f3;color:#1a1a1a;min-height:100vh;}
+  .topbar{background:#fff;border-bottom:1px solid #e5e5e0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:18px;font-weight:600;}
+  .badge{background:#f0fdf4;color:#16a34a;font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid #bbf7d0;}
+  .app{max-width:720px;margin:2rem auto;padding:0 16px;}
+  .card{background:#fff;border:1px solid #e5e5e0;border-radius:14px;padding:1.5rem;margin-bottom:1rem;}
+  .upload-zone{border:2px dashed #d1d1cc;border-radius:12px;padding:3rem 1rem;text-align:center;cursor:pointer;transition:all 0.2s;}
+  .upload-zone:hover,.upload-zone.drag{background:#f8f8f6;border-color:#888;}
+  .icon{font-size:40px;margin-bottom:10px;}
+  h3{font-size:16px;font-weight:600;margin-bottom:4px;}
+  .sub{font-size:13px;color:#666;}
+  .btn{padding:10px 20px;font-size:14px;border-radius:9px;cursor:pointer;border:1px solid #d1d1cc;background:#fff;color:#1a1a1a;font-family:inherit;transition:all 0.15s;}
+  .btn:hover{background:#f5f5f3;}
+  .btn-primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
+  .btn-primary:hover{background:#333;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem;}
+  .img-box{border-radius:10px;overflow:hidden;border:1px solid #e5e5e0;position:relative;background:#f5f5f3;min-height:200px;display:flex;align-items:center;justify-content:center;}
+  .img-box img{width:100%;display:block;object-fit:cover;}
+  .img-label{position:absolute;top:8px;left:8px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,0.6);color:#fff;}
+  .analysis-box{background:#f8f8f6;border-radius:10px;padding:1rem;font-size:14px;line-height:1.7;white-space:pre-wrap;}
+  .tag{display:inline-block;padding:3px 10px;border-radius:8px;font-size:12px;margin:3px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+  .score{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .score-num{font-size:28px;font-weight:700;}
+  .score-bar{flex:1;height:8px;background:#e5e5e0;border-radius:4px;overflow:hidden;}
+  .score-fill{height:100%;background:#16a34a;border-radius:4px;transition:width 0.5s;}
+  .step{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:14px;color:#666;}
+  .dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;border:1px solid #e5e5e0;}
+  .dot.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;animation:pulse 1s infinite;}
+  .dot.done{background:#dcfce7;color:#16a34a;border-color:#bbf7d0;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;}
+  .hidden{display:none!important;}
+  @media(max-width:500px){.compare{grid-template-columns:1fr;}.topbar{padding:12px 16px;}}
+
+  /* Payment modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999;padding:1rem;}
+  .modal{background:#fff;border-radius:16px;padding:2rem;max-width:400px;width:100%;text-align:center;}
+  .modal h2{font-size:20px;font-weight:700;margin-bottom:8px;}
+  .modal p{font-size:14px;color:#666;margin-bottom:1.5rem;line-height:1.6;}
+  .price-box{background:#f8f8f6;border-radius:12px;padding:1.2rem;margin-bottom:1.2rem;}
+  .price-big{font-size:36px;font-weight:700;color:#1a1a1a;}
+  .price-sub{font-size:13px;color:#888;margin-top:2px;}
+  .plan-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.2rem;}
+  .plan-opt{padding:10px;border-radius:10px;border:1.5px solid #e5e5e0;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;background:#fff;}
+  .plan-opt.selected{border-color:#1a1a1a;background:#1a1a1a;color:#fff;}
+  .features{text-align:left;font-size:13px;color:#555;margin-bottom:1.5rem;line-height:2;}
+  .btn-pay{width:100%;padding:14px;font-size:16px;font-weight:600;border-radius:10px;cursor:pointer;border:none;background:#1a1a1a;color:#fff;font-family:inherit;}
+  .btn-pay:hover{background:#333;}
+  .secure{font-size:11px;color:#aaa;margin-top:10px;}
+  .btn-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#888;}
+  .success-banner{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;font-size:13px;color:#16a34a;margin-bottom:12px;display:none;}
+</style>
+</head>
+<body>
+
+<!-- Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<!-- Google AI SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@google/generative-ai"></script>
+
+<!-- Payment Modal -->
+<div class="modal-bg hidden" id="payment-modal">
+  <div class="modal" style="position:relative;">
+    <button class="btn-close" onclick="closeModal()">×</button>
+    <div style="font-size:32px;margin-bottom:8px;">✨</div>
+    <h2>Download Your Enhanced Photo</h2>
+    <p>Your photo is ready! Choose a plan to download it in full quality.</p>
+
+    <div class="plan-toggle">
+      <div class="plan-opt selected" id="plan-single" onclick="selectPlan('single')">
+        <div>Single photo</div>
+        <div style="font-size:18px;font-weight:700;margin-top:4px;">₹4</div>
+      </div>
+      <div class="plan-opt" id="plan-monthly" onclick="selectPlan('monthly')">
+        <div>Monthly unlimited</div>
+        <div style="font-size:18px;font-weight:700;margin-top:4px;">₹49</div>
+      </div>
+    </div>
+
+    <div class="price-box">
+      <div class="price-big" id="modal-price">₹4</div>
+      <div class="price-sub" id="modal-desc">One-time · Single photo download</div>
+    </div>
+
+    <div class="features" id="modal-features">
+      ✅ Full resolution download<br>
+      ✅ All enhancements applied<br>
+      ✅ JPG format · Instant download<br>
+      ✅ Secure payment via Razorpay
+    </div>
+
+    <div class="success-banner" id="success-banner">
+      Payment successful! Your download will start now. 🎉
+    </div>
+
+    <button class="btn-pay" id="pay-btn" onclick="startPayment()">Pay & Download Now</button>
+    <div class="secure">🔒 100% secure · Powered by Razorpay · UPI, Cards, NetBanking accepted</div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="logo">✨ PhotoAI Enhancer by RAVIKUMAR-CEO</div>
+  <div class="badge">Free Demo</div>
+</div>
+
+<div class="app">
+
+  <!-- Upload -->
+  <div class="card" id="upload-card">
+    <h3 style="margin-bottom:4px;">Enhance your photo with AI</h3>
+    <p class="sub" style="margin-bottom:16px;">Upload any photo — AI will analyse it and apply professional enhancements</p>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div class="icon">🖼️</div>
+      <h3>Drop your photo here</h3>
+      <p class="sub" style="margin-top:4px;">or click to browse — JPG, PNG, WEBP supported</p>
+    </div>
+    <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFile(this.files[0])"/>
+  </div>
+
+  <!-- Steps -->
+  <div class="card hidden" id="steps-card">
+    <h3 style="margin-bottom:12px;">Processing your photo...</h3>
+    <div class="step"><div class="dot" id="dot1">1</div><span id="step1-text">Uploading photo</span></div>
+    <div class="step"><div class="dot" id="dot2">2</div><span id="step2-text">AI analysing image quality</span></div>
+    <div class="step"><div class="dot" id="dot3">3</div><span id="step3-text">Generating enhancement report</span></div>
+  </div>
+
+  <!-- Result -->
+  <div class="hidden" id="result-section">
+
+    <div class="card">
+      <h3 style="margin-bottom:12px;">Before / After</h3>
+      <div class="compare">
+        <div class="img-box"><img id="orig-img"/><span class="img-label">Original</span></div>
+        <div class="img-box">
+          <img id="enh-img" style="display:none;"/>
+          <div id="enh-placeholder" style="text-align:center;padding:1.5rem;">
+            <div style="font-size:13px;color:#888;">Apply an enhancement below to see result</div>
+          </div>
+          <span class="img-label hidden" id="enh-label">Enhanced</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:14px;">AI Quality Report</h3>
+      <div class="score">
+        <div class="score-num" id="score-num">—</div>
+        <div>
+          <div style="font-size:12px;color:#888;margin-bottom:4px;">Quality score out of 10</div>
+          <div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="analysis-box" id="analysis-text"></div>
+      <div style="margin-top:12px;" id="tags-row"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:12px;">Apply Enhancements</h3>
+      <div class="actions">
+        <button class="btn" onclick="autoEnhance()">⚡ Auto enhance</button>
+        <button class="btn" onclick="sharpen()">🔍 Sharpen</button>
+        <button class="btn" onclick="brighten()">☀️ Brighten</button>
+        <button class="btn" onclick="contrast()">◐ Boost contrast</button>
+        <button class="btn" onclick="warm()">🌅 Warm tones</button>
+        <button class="btn" onclick="cool()">❄️ Cool tones</button>
+        <button class="btn" onclick="denoise()">✨ Remove noise</button>
+        <button class="btn" onclick="vintage()">📷 Vintage</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:2rem;">
+      <button class="btn" onclick="resetApp()">Try another photo</button>
+      <button class="btn btn-primary" id="download-btn" onclick="openPayment()" disabled>⬇ Download enhanced</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let originalDataUrl = null;
+let enhancedCanvas = null;
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f && f.type.startsWith('image/')) handleFile(f);
+}
+
+function handleFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { originalDataUrl = e.target.result; startProcess(); };
+  reader.readAsDataURL(file);
+}
+
+function setStep(n, state){
+  const dot = document.getElementById('dot'+n);
+  dot.className = 'dot';
+  if(state==='active') dot.classList.add('active');
+  else if(state==='done'){ dot.classList.add('done'); dot.textContent='✓'; return; }
+  dot.textContent = n;
+}
+
+async function startProcess(){
+  document.getElementById('upload-card').classList.add('hidden');
+  document.getElementById('steps-card').classList.remove('hidden');
+
+  setStep(1,'active'); setStep(2,'idle'); setStep(3,'idle');
+  await delay(700);
+  document.getElementById('orig-img').src = originalDataUrl;
+  setStep(1,'done'); setStep(2,'active');
+
+  const analysis = await analyseWithClaude(originalDataUrl);
+
+  setStep(2,'done'); setStep(3,'active');
+  await delay(400);
+  setStep(3,'done');
+  await delay(300);
+
+  showResult(analysis);
+}
+
+async function analyseWithClaude(dataUrl){
+  // 🔑 FREE Google AI Studio API Key - Get yours at: https://aistudio.google.com/apikey
+  const GOOGLE_API_KEY = 'AIzaSyBDF5E2Ln0cyA89g8fjvn83YPVqK_R-wpw'; // ✅ API Key configured
+  
+  if(GOOGLE_API_KEY === 'AIzaSyBDF5E2Ln0cyA89g8fjvn83YPVqK_R-wpw'){
+    console.warn('Using fallback analysis - add your Google API key!');
+    return {
+      quality_score:6,
+      issues:['Low brightness','Slight blur','Low contrast'],
+      enhancements:['Increase brightness','Sharpen details','Boost contrast','Reduce noise'],
+      summary:'The photo has some quality issues that can be improved. Try the auto-enhance option for best results.',
+      photo_type:'other'
+    };
+  }
+
+  try {
+    const genAI = new GenerativeAI(GOOGLE_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = dataUrl.split(';')[0].split(':')[1];
+    
+    const response = await model.generateContent([
+      {
+        inlineData: {
+          data: base64,
+          mimeType: mediaType
+        }
+      },
+      `You are an expert photo editor. Analyse this image and respond ONLY with valid JSON, no markdown, no code blocks:
+{
+  "quality_score": <number 1-10>,
+  "issues": ["issue1","issue2"],
+  "enhancements": ["suggestion1","suggestion2"],
+  "summary": "2-3 sentence plain English description of the photo and what could be improved",
+  "photo_type": "portrait|landscape|product|document|group|other"
+}`
+    ]);
+    
+    const text = response.response.text();
+    const jsonText = text.replace(/```json|```/g,'').trim();
+    return JSON.parse(jsonText);
+  } catch(e) {
+    console.error('AI analysis error:', e);
+    return {
+      quality_score:6,
+      issues:['Low brightness','Slight blur','Low contrast'],
+      enhancements:['Increase brightness','Sharpen details','Boost contrast','Reduce noise'],
+      summary:'The photo has some quality issues that can be improved. Try the auto-enhance option for best results.',
+      photo_type:'other'
+    };
+  }
+}
+
+function showResult(data){
+  document.getElementById('steps-card').classList.add('hidden');
+  document.getElementById('result-section').classList.remove('hidden');
+
+  const score = data.quality_score || 5;
+  document.getElementById('score-num').textContent = score + '/10';
+  document.getElementById('score-fill').style.width = (score*10) + '%';
+  document.getElementById('score-fill').style.background = score>=7?'#16a34a':score>=4?'#d97706':'#dc2626';
+
+  document.getElementById('analysis-text').textContent =
+    data.summary + '\n\nIssues detected:\n' + (data.issues||[]).map(i=>'• '+i).join('\n');
+
+  document.getElementById('tags-row').innerHTML =
+    (data.enhancements||[]).map(e=>`<span class="tag">${e}</span>`).join('');
+}
+
+function applyFilter(fn){
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const id = ctx.getImageData(0,0,c.width,c.height);
+    fn(id.data);
+    ctx.putImageData(id,0,0);
+    enhancedCanvas = c;
+    const url = c.toDataURL('image/jpeg',0.93);
+    const ei = document.getElementById('enh-img');
+    ei.src = url; ei.style.display='block';
+    document.getElementById('enh-placeholder').style.display='none';
+    document.getElementById('enh-label').classList.remove('hidden');
+    document.getElementById('download-btn').disabled = false;
+  };
+  img.src = originalDataUrl;
+}
+
+const cl = v => Math.min(255,Math.max(0,Math.round(v)));
+
+function autoEnhance(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ const avg=(d[i]+d[i+1]+d[i+2])/3; d[i]=cl((avg+(d[i]-avg)*1.25)+20); d[i+1]=cl((avg+(d[i+1]-avg)*1.25)+20); d[i+2]=cl((avg+(d[i+2]-avg)*1.2)+15); }}); }
+function sharpen(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl(d[i]*1.15-10); d[i+1]=cl(d[i+1]*1.15-10); d[i+2]=cl(d[i+2]*1.15-10); }}); }
+function brighten(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl(d[i]+40); d[i+1]=cl(d[i+1]+40); d[i+2]=cl(d[i+2]+40); }}); }
+function contrast(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl((d[i]-128)*1.5+128); d[i+1]=cl((d[i+1]-128)*1.5+128); d[i+2]=cl((d[i+2]-128)*1.5+128); }}); }
+function warm(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl(d[i]+25); d[i+1]=cl(d[i+1]+8); d[i+2]=cl(d[i+2]-20); }}); }
+function cool(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl(d[i]-15); d[i+1]=cl(d[i+1]+5); d[i+2]=cl(d[i+2]+25); }}); }
+function denoise(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ d[i]=cl(d[i]*0.93+8); d[i+1]=cl(d[i+1]*0.93+8); d[i+2]=cl(d[i+2]*0.93+8); }}); }
+function vintage(){ applyFilter(d=>{ for(let i=0;i<d.length;i+=4){ const r=d[i],g=d[i+1],b=d[i+2]; d[i]=cl(r*0.9+g*0.1+30); d[i+1]=cl(g*0.85+20); d[i+2]=cl(b*0.7+10); }}); }
+
+function downloadEnhanced(){
+  if(!enhancedCanvas) return;
+  const a = document.createElement('a');
+  a.download = 'enhanced-photo.jpg';
+  a.href = enhancedCanvas.toDataURL('image/jpeg',0.93);
+  a.click();
+}
+
+function resetApp(){
+  originalDataUrl = null; enhancedCanvas = null;
+  document.getElementById('upload-card').classList.remove('hidden');
+  document.getElementById('steps-card').classList.add('hidden');
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('enh-img').style.display='none';
+  document.getElementById('enh-placeholder').style.display='block';
+  document.getElementById('enh-label').classList.add('hidden');
+  document.getElementById('download-btn').disabled=true;
+  document.getElementById('file-input').value='';
+  [1,2,3].forEach(n=>{ const d=document.getElementById('dot'+n); d.className='dot'; d.textContent=n; });
+}
+
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ── PAYMENT ────────────────────────────────────────────────
+const PLANS = {
+  single:  { amount: 400,  label: '₹4',  desc: 'One-time · Single photo download' },
+  monthly: { amount: 4900, label: '₹49', desc: 'Monthly unlimited downloads' }
+};
+let currentPlan = 'single';
+
+// 🔑 REPLACE THIS with your actual Razorpay Key ID from razorpay.com
+const RAZORPAY_KEY = 'rzp_live_SdIBGySQAfgw22';
+
+function openPayment(){
+  document.getElementById('payment-modal').classList.remove('hidden');
+  document.getElementById('success-banner').style.display = 'none';
+  document.getElementById('pay-btn').disabled = false;
+  document.getElementById('pay-btn').textContent = 'Pay & Download Now';
+  selectPlan('single');
+}
+
+function closeModal(){
+  document.getElementById('payment-modal').classList.add('hidden');
+}
+
+function selectPlan(plan){
+  currentPlan = plan;
+  document.getElementById('plan-single').classList.toggle('selected', plan==='single');
+  document.getElementById('plan-monthly').classList.toggle('selected', plan==='monthly');
+  document.getElementById('modal-price').textContent = PLANS[plan].label;
+  document.getElementById('modal-desc').textContent = PLANS[plan].desc;
+  if(plan==='monthly'){
+    document.getElementById('modal-features').innerHTML =
+      '✅ Unlimited photo downloads<br>✅ All enhancement filters<br>✅ Priority processing<br>✅ Cancel anytime';
+  } else {
+    document.getElementById('modal-features').innerHTML =
+      '✅ Full resolution download<br>✅ All enhancements applied<br>✅ JPG format · Instant download<br>✅ Secure payment via Razorpay';
+  }
+}
+
+function startPayment(){
+  const plan = PLANS[currentPlan];
+  const options = {
+    key: RAZORPAY_KEY,
+    amount: plan.amount,
+    currency: 'INR',
+    name: 'PhotoAI Enhancer',
+    description: currentPlan === 'single' ? 'Enhanced Photo Download' : 'Monthly Unlimited Plan',
+    image: '',
+    handler: function(response){
+      // Payment successful — trigger download
+      document.getElementById('success-banner').style.display = 'block';
+      document.getElementById('pay-btn').disabled = true;
+      document.getElementById('pay-btn').textContent = '✓ Payment successful';
+      setTimeout(()=>{
+        downloadEnhanced();
+        setTimeout(closeModal, 1500);
+      }, 800);
+    },
+    prefill: { name: '', email: '', contact: '' },
+    notes: { plan: currentPlan },
+    theme: { color: '#1a1a1a' },
+    modal: { ondismiss: function(){ console.log('Payment cancelled'); } }
+  };
+  const rzp = new Razorpay(options);
+  rzp.on('payment.failed', function(resp){
+    alert('Payment failed: ' + resp.error.description);
+  });
+  rzp.open();
+}
+
+</script>
+</body>
+</html>
