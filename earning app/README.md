@@ -14,7 +14,7 @@ A free, AI-powered web app that enhances your photos with professional-grade fil
 
 Fully deployed on GitHub Pages - just open `index.html` in your browser!
 
-**Live URL:** https://yourusername.github.io/repo-name
+**Live URL:** https://RAVIKUMAR-CEO.github.io/ai-photo-enhancer
 
 ## 🔧 Setup (Local Development)
 
